@@ -96,8 +96,28 @@ textarea:focus{border-color:#2f6bff;box-shadow:0 0 0 3px rgba(47,107,255,.22)}
 .save:hover{filter:brightness(1.12);transform:translateY(-2px)}.save:active{transform:scale(.97)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 @media (prefers-color-scheme:light){body{background:#000}}
-</style></head><body><div class="aur a1"></div><div class="aur a2"></div><canvas id="stars"></canvas><div class="glow" id="glow"></div><div id="app"></div>
+
+#authGate{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(18px)}
+#authGate[hidden]{display:none}
+.authBox{width:100%;max-width:420px;background:#111114;border:1px solid #2b3550;border-radius:24px;padding:24px;box-shadow:0 20px 80px #000}
+.authBox h2{margin:0 0 8px;color:#6aa8ff;font-size:22px}.authBox p{color:#a1a1aa;font-size:13px;line-height:1.9;margin:0 0 18px}
+.authBox input{display:block;width:100%;margin:10px 0;background:#08080b;border:1px solid #34343d;border-radius:12px;color:#fff;font:15px Vazirmatn;padding:13px;direction:ltr;text-align:left}
+.authBox button{width:100%;border:0;border-radius:13px;background:#2f6bff;color:white;font:700 15px Vazirmatn;padding:13px;margin-top:8px;cursor:pointer}
+#authMsg{font-size:13px;line-height:1.8;color:#fca5a5;white-space:pre-wrap;margin-top:10px}
+#cloudBar{max-width:760px;margin:8px auto 0;padding:0 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;color:#9ca3af;font-size:12px;position:relative;z-index:2}
+#cloudBar button{background:#17171c;border:1px solid #34343d;border-radius:9px;color:#cbd5e1;padding:5px 9px;font:12px Vazirmatn}
+</style></head><body><div id="authGate"><div class="authBox"><h2>دیسپلین شخصی</h2><p>برای همگام‌سازی تیک‌ها و یادداشت‌ها، با همان حساب Supabase که ساختی وارد شو. اطلاعاتت از طریق حساب خودت ذخیره می‌شود.</p><form id="authForm"><input id="authEmail" type="email" autocomplete="username" placeholder="ایمیل حساب" required><input id="authPassword" type="password" autocomplete="current-password" placeholder="رمز عبور" required><button id="authSubmit" type="submit">ورود و همگام‌سازی</button></form><div id="authMsg"></div></div></div><div id="cloudBar"><span id="cloudStatus">در انتظار اتصال امن…</span><button id="signOutBtn" type="button" hidden>خروج از حساب</button></div><div class="aur a1"></div><div class="aur a2"></div><canvas id="stars"></canvas><div class="glow" id="glow"></div><div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL='https://jerrzygmjkoetlkibovy.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0xeo6GUflAO0FsiLFksagg_zeGuQ-YP';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+let cloudUser=null,cloudRowId=null,cloudTimer=null,cloudReady=false,cloudBusy=false;
+const cloudStatus=t=>{const el=document.getElementById('cloudStatus');if(el)el.textContent=t};
+function cloudScheduleSave(){if(!cloudReady||!cloudUser)return;clearTimeout(cloudTimer);cloudStatus('تغییرات ذخیره‌نشده…');cloudTimer=setTimeout(cloudSaveNow,900)}
+async function cloudSaveNow(){if(!cloudReady||!cloudUser||cloudBusy)return;cloudBusy=true;try{const payload={disc_v1:data,disc_notes:notes||{}};const day=new Date();const record_date=`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;let result;if(cloudRowId){result=await sb.from('daily_records').update({data:payload,record_date}).eq('id',cloudRowId).select('id').single()}else{result=await sb.from('daily_records').insert({user_id:cloudUser.id,data:payload,record_date}).select('id').single()}if(result.error)throw result.error;cloudRowId=result.data.id;cloudStatus('همگام‌سازی شد ✓')}catch(e){cloudStatus('خطا در ذخیره ابری: '+(e.message||'بررسی دسترسی جدول'))}finally{cloudBusy=false}}
+async function startCloudSession(session){if(!session){cloudUser=null;cloudReady=false;document.getElementById('authGate').hidden=false;document.getElementById('signOutBtn').hidden=true;cloudStatus('برای همگام‌سازی وارد شو');return}cloudUser=session.user;document.getElementById('authGate').hidden=true;document.getElementById('signOutBtn').hidden=false;cloudStatus('در حال دریافت اطلاعات…');try{const r=await sb.from('daily_records').select('id,data,created_at').eq('user_id',cloudUser.id).order('created_at',{ascending:false}).limit(1).maybeSingle();if(r.error)throw r.error;if(r.data){cloudRowId=r.data.id;const v=r.data.data||{};if(v.disc_v1&&typeof v.disc_v1==='object')data=v.disc_v1;if(v.disc_notes&&typeof v.disc_notes==='object')notes=v.disc_notes;localStorage.setItem('disc_v1',JSON.stringify(data));localStorage.setItem('disc_notes',JSON.stringify(notes||{}));cloudReady=true;render();cloudStatus('اطلاعات ابری بارگذاری شد ✓')}else{cloudRowId=null;cloudReady=true;await cloudSaveNow();cloudStatus('همگام‌سازی فعال شد ✓')} }catch(e){cloudReady=false;cloudStatus('اتصال برقرار نشد: '+(e.message||'تنظیمات جدول را بررسی کن'));document.getElementById('authGate').hidden=false;document.getElementById('authMsg').textContent='ورود انجام شد اما دریافت/ذخیره اطلاعات مشکل دارد. متن خطا: '+(e.message||'خطای نامشخص')}}
+document.addEventListener('DOMContentLoaded',()=>{document.getElementById('authForm').addEventListener('submit',async e=>{e.preventDefault();const b=document.getElementById('authSubmit'),msg=document.getElementById('authMsg');b.disabled=true;b.textContent='در حال ورود…';msg.textContent='';try{const {data,error}=await sb.auth.signInWithPassword({email:document.getElementById('authEmail').value.trim(),password:document.getElementById('authPassword').value});if(error)throw error;await startCloudSession(data.session)}catch(err){msg.textContent=err.message||'ورود ناموفق بود'}finally{b.disabled=false;b.textContent='ورود و همگام‌سازی'}});document.getElementById('signOutBtn').addEventListener('click',async()=>{await sb.auth.signOut();location.reload()});sb.auth.getSession().then(({data,error})=>{if(error){cloudStatus('خطای دریافت نشست حساب');return}startCloudSession(data.session)});sb.auth.onAuthStateChange((_event,session)=>{if(session)startCloudSession(session)});});
 const MN=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 const WN=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
 const S=[
@@ -115,7 +135,7 @@ const D=[];for(let i=0;i<N;i++){const dt=new Date(2026,9,30+i,12),p={};pf.format
 D.t={y:0,m:1,d:1,wd:0,wk:-1};const M=[];D.forEach((x,i)=>{let g=M[M.length-1];if(!g||g.m!==x.m||g.y!==x.y){g={y:x.y,m:x.m,days:[]};M.push(g)}g.days.push(i)});
 let now,T;function calcT(){now=new Date();T=Math.floor((Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())-Date.UTC(2026,9,30))/864e5)}calcT();
 let data={};try{data=JSON.parse(localStorage.getItem('disc_v1')||'{}')}catch(e){}
-const save=()=>{try{localStorage.setItem('disc_v1',JSON.stringify(data))}catch(e){}};
+const save=()=>{try{localStorage.setItem('disc_v1',JSON.stringify(data))}catch(e){};cloudScheduleSave()};
 const steps=i=>S.filter(s=>!(s.rest&&s.rest.includes(D[i].wd)));
 function stat(list){let done=0,tot=0;const per={};DN.forEach(n=>per[n]={d:0,t:0});
 list.forEach(i=>{if(i>T)return;const r=data[i]||{};steps(i).forEach(s=>{const a=r[s.id]!==undefined;if(i<T||a){tot++;per[s.d].t++;if(r[s.id]===1){done++;per[s.d].d++}}})});
@@ -196,8 +216,8 @@ document.addEventListener('pointerout',e=>{const c=e.target.closest&&e.target.cl
 let notes={};try{notes=JSON.parse(localStorage.getItem('disc_notes')||'{}')}catch(e){}
 try{if(!localStorage.getItem('disc_rs3')){data={};notes={};localStorage.setItem('disc_v1','{}');localStorage.setItem('disc_notes','{}');localStorage.setItem('disc_rs3','1')}}catch(e){}
 const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-function saveNote(i){const t=document.getElementById('nt').value.trim();if(!t)return;notes[i]=t;try{localStorage.setItem('disc_notes',JSON.stringify(notes))}catch(e){}render()}
-function resetTest(){delete data.t;delete notes.t;save();try{localStorage.setItem('disc_notes',JSON.stringify(notes))}catch(e){}render();scrollTo(0,0)}
+function saveNote(i){const t=document.getElementById('nt').value.trim();if(!t)return;notes[i]=t;try{localStorage.setItem('disc_notes',JSON.stringify(notes))}catch(e){}cloudScheduleSave();render()}
+function resetTest(){delete data.t;delete notes.t;save();try{localStorage.setItem('disc_notes',JSON.stringify(notes))}catch(e){}cloudScheduleSave();render();scrollTo(0,0)}
 function extra(c){let r=extra0(c);if(c.v==='home')r+=`<div class='sub' style='margin-top:18px;text-align:center'>امروز طبق ساعت دستگاه تو: ${new Intl.DateTimeFormat('fa-IR-u-ca-persian',{weekday:'long',day:'numeric',month:'long'}).format(now)}</div><div class='grid' style='margin-top:20px'><div class='card' onclick="go({v:'day',i:'t'})"><b>🧪 تست</b><small>نسخه نمایشی برای نشان دادن به دیگران · روی نمره‌ها اثری ندارد</small>${dots('t')}</div></div>`;if(c.v==='day'&&c.i==='t')r+=`<button class='save' style='background:linear-gradient(135deg,#ef4444,#b91c1c);box-shadow:0 12px 30px -12px #ef4444' onclick='resetTest()'>↺ ریست تست</button>`;return r}
 function extra0(c){if(c.v==='day'){const i=c.i;if(i>T)return '';const done=steps(i).every(s=>(data[i]||{})[s.id]!==undefined);
 if(notes[i])return `<div class='rep'><b>📝 یادداشت پایان روز</b><div class='hand' style='white-space:pre-wrap'>${esc(notes[i])}</div></div>`;
