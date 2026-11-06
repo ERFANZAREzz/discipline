@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - migration/my-planner
+      - main
   workflow_dispatch:
 
 permissions:
