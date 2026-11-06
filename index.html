@@ -114,9 +114,9 @@ const ic=(n,s=18,c='')=>`<svg class="ic ${c}" width="${s}" height="${s}" viewBox
 function jNow(d=new Date()){const p=new Intl.DateTimeFormat('en-u-ca-persian-nu-latn',{year:'numeric',month:'numeric',day:'numeric'}).formatToParts(d);const g=t=>+p.find(x=>x.type===t).value;return{y:g('year'),m:g('month'),d:g('day')}}
 const mLen=(y,m)=>m<=6?31:m<=11?30:(LEAP.includes(y%33)?30:29);
 const ser=(y,m,d)=>{let s=0;for(let i=1400;i<y;i++)s+=LEAP.includes(i%33)?366:365;for(let i=1;i<m;i++)s+=mLen(y,i);return s+d};
-const SUPABASE_URL='https://jerrzygmjkoetlkibovy.supabase.co';
+const SUPABASE_URL='https://jerrzygmjkoetlkibovy.sbClient.co';
 const SUPABASE_KEY='sb_publishable_0xeo6GUflAO0FsiLFksagg_zeGuQ-YP';
-const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const DEF=()=>({habits:[],ck:{},wt:{},notes:{},tasks:{},tx:[],bud:{},ev:{},subj:[]});
 let SK='guest',S=DEF(),currentUser=null,saveTimer=null,authBusy=false;
 const cacheKey=id=>'myplanner:'+id;
@@ -125,7 +125,7 @@ async function flushSave(){
  clearTimeout(saveTimer);saveTimer=null;
  const owner=currentUser.id,payload=JSON.stringify(S);
  try{localStorage.setItem(SK,payload)}catch(e){}
- const {error}=await supabase.from('planner_data').upsert({user_id:owner,data:JSON.parse(payload),updated_at:new Date().toISOString()},{onConflict:'user_id'});
+ const {error}=await sbClient.from('planner_data').upsert({user_id:owner,data:JSON.parse(payload),updated_at:new Date().toISOString()},{onConflict:'user_id'});
  if(error){console.error('Cloud save failed:',error.message);return false}
  return true;
 }
@@ -156,7 +156,7 @@ async function openAdmin(){
  const view=document.getElementById('admin-view'),app=document.getElementById('app');
  app.style.display='none';view.style.display='block';view.innerHTML='<div class="card"><h2>پنل مدیریت اعضا</h2><div class="sub">در حال دریافت اطلاعات کاربران...</div></div>';
  try{
-  const {data,error}=await supabase.functions.invoke('admin-list-users',{body:{page:1}});
+  const {data,error}=await sbClient.functions.invoke('admin-list-users',{body:{page:1}});
   if(error)throw error;
   const users=data?.users||[];
   const fmt=v=>v?new Date(v).toLocaleDateString('fa-IR'):'—';
@@ -178,22 +178,22 @@ async function doLogin(){
  authBusy=true;
  try{
   if(authMode==='signup'){
-   const {data,error}=await supabase.auth.signUp({email,password,options:{emailRedirectTo:location.href.split('#')[0]}});
+   const {data,error}=await sbClient.auth.signUp({email,password,options:{emailRedirectTo:location.href.split('#')[0]}});
    if(error)throw error;
    if(!data.session){showLogin('حساب ساخته شد. ایمیلت را باز کن و لینک تأیید را بزن، بعد وارد شو.');return}
    await startUser(data.user);
   }else{
-   const {data,error}=await supabase.auth.signInWithPassword({email,password});if(error)throw error;await startUser(data.user);
+   const {data,error}=await sbClient.auth.signInWithPassword({email,password});if(error)throw error;await startUser(data.user);
   }
  }catch(e){showLogin(e.message||'ورود انجام نشد')}
  finally{authBusy=false}
 }
 async function sendReset(){const email=document.getElementById('le')?.value.trim().toLowerCase();if(!email){alert('اول ایمیلت را وارد کن');return}
- const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});
+ const {error}=await sbClient.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});
  showLogin(error?error.message:'اگر این ایمیل در سامانه ثبت شده باشد، لینک بازیابی برایش ارسال می‌شود. پوشه Spam را هم بررسی کن.');
 }
 async function setNewPassword(){const p1=document.getElementById('lp')?.value,p2=document.getElementById('lp2')?.value;if(!p1||p1.length<8){alert('رمز باید حداقل ۸ کاراکتر باشد');return}if(p1!==p2){alert('تکرار رمز با رمز جدید یکسان نیست');return}
- const {data,error}=await supabase.auth.updateUser({password:p1});if(error){showLogin(error.message);return}authMode='login';if(data?.user){await startUser(data.user)}alert('رمز عبور با موفقیت تغییر کرد');
+ const {data,error}=await sbClient.auth.updateUser({password:p1});if(error){showLogin(error.message);return}authMode='login';if(data?.user){await startUser(data.user)}alert('رمز عبور با موفقیت تغییر کرد');
 }
 function findLegacyPlannerData(){
  const keys=[];try{const last=localStorage.getItem('planner_last');if(last)keys.push(last)}catch(e){}
@@ -204,7 +204,7 @@ function findLegacyPlannerData(){
 }
 async function startUser(user){
  currentUser=user;updateAdminButton();SK=cacheKey(user.id);S=DEF();
- const {data,error}=await supabase.from('planner_data').select('data').eq('user_id',user.id).maybeSingle();
+ const {data,error}=await sbClient.from('planner_data').select('data').eq('user_id',user.id).maybeSingle();
  if(error)throw error;
  if(data?.data&&typeof data.data==='object')S=Object.assign(DEF(),data.data);
  else {
@@ -222,12 +222,12 @@ async function startUser(user){
 }
 async function bootAuth(){
  if(location.hash.includes('type=recovery')){authMode='newpass';showLogin();return}
- const {data:{session},error}=await supabase.auth.getSession();
+ const {data:{session},error}=await sbClient.auth.getSession();
  if(error){showLogin(error.message);return}
  if(session?.user){try{await startUser(session.user)}catch(e){showLogin('بارگذاری اطلاعات انجام نشد: '+e.message)}return}
  S=DEF();showLogin();render();
 }
-supabase.auth.onAuthStateChange((event,session)=>{
+sbClient.auth.onAuthStateChange((event,session)=>{
  if(event==='PASSWORD_RECOVERY'){authMode='newpass';showLogin();}
  else if(event==='SIGNED_OUT'){currentUser=null;updateAdminButton();document.getElementById('admin-view').style.display='none';document.getElementById('app').style.display='';S=DEF();authMode='login';showLogin();render();}
 });
@@ -321,7 +321,7 @@ function sadd(){const n=sn.value.trim(),d=+sd.value;if(!n||!d)return;S.subj.push
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;fresh=true;scrollTo(0,0);render()});
 const root=document.documentElement;try{const t=localStorage.getItem('pl_theme');if(t)root.dataset.theme=t}catch(e){}
 document.getElementById('theme').onclick=()=>{const dk=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;root.dataset.theme=dk?'light':'dark';try{localStorage.setItem('pl_theme',root.dataset.theme)}catch(e){}};
-document.getElementById('out').onclick=async()=>{if(confirm('از حساب خارج می‌شوی؟ اول آخرین تغییرات ذخیره می‌شوند.')){await flushSave();await supabase.auth.signOut();tab='habit'}};
+document.getElementById('out').onclick=async()=>{if(confirm('از حساب خارج می‌شوی؟ اول آخرین تغییرات ذخیره می‌شوند.')){await flushSave();await sbClient.auth.signOut();tab='habit'}};
 document.querySelectorAll('[data-i]').forEach(e=>e.innerHTML=ic(e.dataset.i,e.closest('nav')?22:18));
 bootAuth();
 </script>
