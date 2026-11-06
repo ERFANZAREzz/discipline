@@ -108,16 +108,20 @@ const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const DEF=()=>({habits:[],ck:{},wt:{},notes:{},tasks:{},tx:[],bud:{},ev:{},subj:[]});
 let SK='guest',S=DEF(),currentUser=null,saveTimer=null,authBusy=false;
 const cacheKey=id=>'myplanner:'+id;
+async function flushSave(){
+ if(!S||!currentUser)return;
+ clearTimeout(saveTimer);saveTimer=null;
+ const owner=currentUser.id,payload=JSON.stringify(S);
+ try{localStorage.setItem(SK,payload)}catch(e){}
+ const {error}=await supabase.from('planner_data').upsert({user_id:owner,data:JSON.parse(payload),updated_at:new Date().toISOString()},{onConflict:'user_id'});
+ if(error){console.error('Cloud save failed:',error.message);return false}
+ return true;
+}
 function save(){
  if(!S||!currentUser)return;
- const payload=JSON.stringify(S);
- try{localStorage.setItem(SK,payload)}catch(e){}
+ try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}
  clearTimeout(saveTimer);
- saveTimer=setTimeout(async()=>{
-   if(!currentUser)return;
-   const {error}=await supabase.from('planner_data').upsert({user_id:currentUser.id,data:S,updated_at:new Date().toISOString()},{onConflict:'user_id'});
-   if(error)console.error('Cloud save failed:',error.message);
- },700);
+ saveTimer=setTimeout(()=>{flushSave()},700);
 }
 function migrate(){if(!S.noemoji){S.habits.forEach(h=>{h.n=h.n.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu,'').replace(/\s+/g,' ').trim()||h.n});S.noemoji=1;save()}
 if(!S.emv){const M={'بیدار شدن ۵ صبح':'⏰','خوردن ۸ لیوان آب':'💧','۳۰ دقیقه ورزش':'💪','۸ ساعت خواب':'😴','پیاده‌روی':'🚶','۱۵ دقیقه مدیتیشن':'🧘','مطالعه ۵ صفحه':'📖'};S.habits.forEach(h=>{if(!h.e&&M[h.n])h.e=M[h.n]});S.emv=1;save()}}
@@ -179,13 +183,30 @@ async function sendReset(){const email=document.getElementById('le')?.value.trim
 async function setNewPassword(){const p1=document.getElementById('lp')?.value,p2=document.getElementById('lp2')?.value;if(!p1||p1.length<8){alert('رمز باید حداقل ۸ کاراکتر باشد');return}if(p1!==p2){alert('تکرار رمز با رمز جدید یکسان نیست');return}
  const {data,error}=await supabase.auth.updateUser({password:p1});if(error){showLogin(error.message);return}authMode='login';if(data?.user){await startUser(data.user)}alert('رمز عبور با موفقیت تغییر کرد');
 }
+function findLegacyPlannerData(){
+ const keys=[];try{const last=localStorage.getItem('planner_last');if(last)keys.push(last)}catch(e){}
+ keys.push('planner2','planner1','guest');
+ try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('pl:')&&!keys.includes(k))keys.push(k)}}catch(e){}
+ for(const k of keys){try{const raw=localStorage.getItem(k);if(!raw)continue;const v=JSON.parse(raw);if(v&&typeof v==='object'&&(Array.isArray(v.habits)||Array.isArray(v.tx)||Object.keys(v.ck||{}).length||Object.keys(v.wt||{}).length||Object.keys(v.tasks||{}).length))return {key:k,data:v}}catch(e){}}
+ return null;
+}
 async function startUser(user){
  currentUser=user;updateAdminButton();SK=cacheKey(user.id);S=DEF();
  const {data,error}=await supabase.from('planner_data').select('data').eq('user_id',user.id).maybeSingle();
  if(error)throw error;
  if(data?.data&&typeof data.data==='object')S=Object.assign(DEF(),data.data);
- else {try{const local=JSON.parse(localStorage.getItem(SK)||'null');if(local)S=Object.assign(DEF(),local)}catch(e){}}
- const email=user.email||'';S.user={f:email.split('@')[0]||'کاربر',l:''};migrate();if(!S.start)S.start=ser(T.y,T.m,T.d);save();fresh=true;showLogin();render();
+ else {
+  let local=null;try{local=JSON.parse(localStorage.getItem(SK)||'null')}catch(e){}
+  if(local&&typeof local==='object')S=Object.assign(DEF(),local);
+  else {
+   const legacy=findLegacyPlannerData();
+   if(legacy&&confirm('اطلاعات قبلی پلنرت روی این دستگاه پیدا شد ('+legacy.key+'). می‌خواهی آن‌ها به حساب جدیدت منتقل شوند؟')){
+    S=Object.assign(DEF(),legacy.data);
+   }
+  }
+ }
+ const email=user.email||'';S.user={f:email.split('@')[0]||'کاربر',l:''};migrate();if(!S.start)S.start=ser(T.y,T.m,T.d);
+ await flushSave();fresh=true;showLogin();render();
 }
 async function bootAuth(){
  if(location.hash.includes('type=recovery')){authMode='newpass';showLogin();return}
@@ -288,7 +309,7 @@ function sadd(){const n=sn.value.trim(),d=+sd.value;if(!n||!d)return;S.subj.push
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;fresh=true;scrollTo(0,0);render()});
 const root=document.documentElement;try{const t=localStorage.getItem('pl_theme');if(t)root.dataset.theme=t}catch(e){}
 document.getElementById('theme').onclick=()=>{const dk=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;root.dataset.theme=dk?'light':'dark';try{localStorage.setItem('pl_theme',root.dataset.theme)}catch(e){}};
-document.getElementById('out').onclick=async()=>{if(confirm('از حساب خارج می‌شوی؟ اطلاعاتت در فضای ابری ذخیره می‌ماند.')){clearTimeout(saveTimer);await supabase.auth.signOut();tab='habit'}};
+document.getElementById('out').onclick=async()=>{if(confirm('از حساب خارج می‌شوی؟ اول آخرین تغییرات ذخیره می‌شوند.')){await flushSave();await supabase.auth.signOut();tab='habit'}};
 document.querySelectorAll('[data-i]').forEach(e=>e.innerHTML=ic(e.dataset.i,e.closest('nav')?22:18));
 bootAuth();
 </script>
