@@ -116,7 +116,7 @@ const mLen=(y,m)=>m<=6?31:m<=11?30:(LEAP.includes(y%33)?30:29);
 const ser=(y,m,d)=>{let s=0;for(let i=1400;i<y;i++)s+=LEAP.includes(i%33)?366:365;for(let i=1;i<m;i++)s+=mLen(y,i);return s+d};
 const SUPABASE_URL='https://jerrzygmjkoetlkibovy.supabase.co';
 const SUPABASE_KEY='sb_publishable_0xeo6GUflAO0FsiLFksagg_zeGuQ-YP';
-const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:true,storage:window.localStorage}});
 const DEF=()=>({habits:[],ck:{},wt:{},notes:{},tasks:{},tx:[],bud:{},ev:{},subj:[]});
 let SK='guest',S=DEF(),currentUser=null,saveTimer=null,authBusy=false;
 const cacheKey=id=>'myplanner:'+id;
@@ -224,7 +224,7 @@ async function startUser(user){
    }
   }
  }
- const email=user.email||'';let displayName=user.user_metadata?.full_name||'';if(!displayName){displayName=prompt('برای نمایش نام در بالای پلنر، نام و نام خانوادگی‌ات را وارد کن:')?.trim()||email.split('@')[0]||'کاربر';if(displayName!==email.split('@')[0]){const {error:profileError}=await sbClient.auth.updateUser({data:{full_name:displayName}});if(profileError)console.warn('Profile name update failed:',profileError.message)}}S.user={f:displayName,l:''};migrate();if(!S.start)S.start=ser(T.y,T.m,T.d);
+ const email=user.email||'';const displayName=user.user_metadata?.full_name||S.user?.f||email.split('@')[0]||'کاربر';if(!user.user_metadata?.full_name&&displayName!==email.split('@')[0]){const {error:profileError}=await sbClient.auth.updateUser({data:{full_name:displayName}});if(profileError)console.warn('Profile name update failed:',profileError.message)}S.user={f:displayName,l:''};migrate();if(!S.start)S.start=ser(T.y,T.m,T.d);
  await flushSave();fresh=true;showLogin();render();
 }
 async function bootAuth(){
