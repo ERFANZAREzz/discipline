@@ -114,7 +114,7 @@ const ic=(n,s=18,c='')=>`<svg class="ic ${c}" width="${s}" height="${s}" viewBox
 function jNow(d=new Date()){const p=new Intl.DateTimeFormat('en-u-ca-persian-nu-latn',{year:'numeric',month:'numeric',day:'numeric'}).formatToParts(d);const g=t=>+p.find(x=>x.type===t).value;return{y:g('year'),m:g('month'),d:g('day')}}
 const mLen=(y,m)=>m<=6?31:m<=11?30:(LEAP.includes(y%33)?30:29);
 const ser=(y,m,d)=>{let s=0;for(let i=1400;i<y;i++)s+=LEAP.includes(i%33)?366:365;for(let i=1;i<m;i++)s+=mLen(y,i);return s+d};
-const SUPABASE_URL='https://jerrzygmjkoetlkibovy.sbClient.co';
+const SUPABASE_URL='https://jerrzygmjkoetlkibovy.supabase.co';
 const SUPABASE_KEY='sb_publishable_0xeo6GUflAO0FsiLFksagg_zeGuQ-YP';
 const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const DEF=()=>({habits:[],ck:{},wt:{},notes:{},tasks:{},tx:[],bud:{},ev:{},subj:[]});
