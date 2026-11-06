@@ -93,6 +93,18 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:18px 12px;line-
 </nav>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+window.addEventListener('error',function(e){
+ const box=document.getElementById('runtime-diagnostic')||document.body.appendChild(document.createElement('div'));
+ box.id='runtime-diagnostic';box.style.cssText='position:fixed;z-index:99999;top:10px;left:10px;right:10px;padding:14px;background:#7f1d1d;color:white;border-radius:12px;direction:rtl;font:14px/1.8 sans-serif;white-space:pre-wrap';
+ box.textContent='خطای اجرای پلنر: '+(e.message||'خطای نامشخص')+'\nفایل: '+(e.filename||'')+'\nخط: '+(e.lineno||'')+' ستون: '+(e.colno||'');
+});
+window.addEventListener('unhandledrejection',function(e){
+ const box=document.getElementById('runtime-diagnostic')||document.body.appendChild(document.createElement('div'));
+ box.id='runtime-diagnostic';box.style.cssText='position:fixed;z-index:99999;top:10px;left:10px;right:10px;padding:14px;background:#7f1d1d;color:white;border-radius:12px;direction:rtl;font:14px/1.8 sans-serif;white-space:pre-wrap';
+ box.textContent='خطای ارتباط یا بارگذاری: '+(e.reason?.message||String(e.reason||'خطای نامشخص'));
+});
+</script>
+<script>
 const fa=n=>Number(n).toLocaleString('fa-IR').replace(/٬/g,'');const fn=n=>Number(n).toLocaleString('fa-IR');
 const MN=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 const WD=['ش','ی','د','س','چ','پ','ج'],WF=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
