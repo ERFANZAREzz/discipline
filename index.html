@@ -178,9 +178,9 @@ async function doLogin(){
  authBusy=true;
  try{
   if(authMode==='signup'){
-   const {data,error}=await sbClient.auth.signUp({email,password,options:{emailRedirectTo:location.href.split('#')[0],data:{full_name:fullName}}});
+   const {data,error}=await sbClient.auth.signUp({email,password,options:{data:{full_name:fullName}}});
    if(error)throw error;
-   if(!data.session){showLogin('حساب ساخته شد. ایمیلت را باز کن و لینک تأیید را بزن، بعد وارد شو.');return}
+   if(!data.session){showLogin('حساب ساخته شد، اما ورود مستقیم هنوز فعال نیست. باید گزینه تأیید ایمیل در تنظیمات Supabase خاموش شود؛ بعد از آن ثبت‌نام مستقیم وارد پلنر می‌کند.');return}
    await startUser(data.user);
   }else{
    const {data,error}=await sbClient.auth.signInWithPassword({email,password});if(error)throw error;await startUser(data.user);
@@ -188,9 +188,16 @@ async function doLogin(){
  }catch(e){showLogin(e.message||'ورود انجام نشد')}
  finally{authBusy=false}
 }
-async function sendReset(){const email=document.getElementById('le')?.value.trim().toLowerCase();if(!email){alert('اول ایمیلت را وارد کن');return}
- const {error}=await sbClient.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});
- showLogin(error?error.message:'اگر این ایمیل در سامانه ثبت شده باشد، لینک بازیابی برایش ارسال می‌شود. پوشه Spam را هم بررسی کن.');
+async function sendReset(){
+ const email=document.getElementById('le')?.value.trim().toLowerCase();
+ if(!email){showLogin('اول ایمیلت را وارد کن.');return}
+ const btn=document.querySelector('#login button[onclick="sendReset()"]');
+ if(btn){btn.disabled=true;btn.textContent='در حال ارسال...'}
+ try{
+  const {error}=await sbClient.auth.resetPasswordForEmail(email,{redirectTo:'https://erfanzarezz.github.io/discipline/'});
+  if(error)throw error;
+  showLogin('درخواست بازیابی ثبت شد. اگر ایمیل وجود داشته باشد، پیام بازیابی ارسال می‌شود. پوشه Spam را هم بررسی کن.');
+ }catch(e){showLogin('ارسال ایمیل انجام نشد: '+(e.message||'خطای نامشخص'))}
 }
 async function setNewPassword(){const p1=document.getElementById('lp')?.value,p2=document.getElementById('lp2')?.value;if(!p1||p1.length<8){alert('رمز باید حداقل ۸ کاراکتر باشد');return}if(p1!==p2){alert('تکرار رمز با رمز جدید یکسان نیست');return}
  const {data,error}=await sbClient.auth.updateUser({password:p1});if(error){showLogin(error.message);return}authMode='login';if(data?.user){await startUser(data.user)}alert('رمز عبور با موفقیت تغییر کرد');
