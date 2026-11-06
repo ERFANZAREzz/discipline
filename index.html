@@ -84,7 +84,8 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:18px 12px;line-
 </head>
 <body>
 <div class="bgb" style="width:320px;height:320px;background:var(--ac);top:-80px;inset-inline-start:-60px"></div><div class="bgb" style="width:280px;height:280px;background:#ec4899;bottom:60px;inset-inline-end:-60px;animation-delay:-6s"></div><div id="pk" onclick="if(event.target===this)this.innerHTML=''"></div>
-<header><div class="grow"><h1 id="hi" style="display:flex;align-items:center;gap:6px">پک کامل پلنر</h1><div class="sub" id="today"></div></div><button class="btn ghost" id="out" title="خروج / تغییر کاربر" data-i="user"></button><button class="btn ghost" id="theme" data-i="theme"></button></header><div id="login"></div>
+<header><div class="grow"><h1 id="hi" style="display:flex;align-items:center;gap:6px">پک کامل پلنر</h1><div class="sub" id="today"></div></div><button class="btn ghost" id="adminBtn" style="display:none" onclick="openAdmin()">مدیریت</button><button class="btn ghost" id="out" title="خروج / تغییر کاربر" data-i="user"></button><button class="btn ghost" id="theme" data-i="theme"></button></header><div id="login"></div>
+<section id="admin-view" style="display:none;max-width:900px;margin:16px auto;padding:0 12px"></section>
 <main id="app"></main>
 <footer>ساخته شده توسط <b>محمد عرفان زارع</b><br><b>راه ارتباطی</b><br>تلگرام: <a href="https://t.me/tvg69"><bdi>@tvg69</bdi></a></footer>
 <nav>
@@ -132,6 +133,29 @@ function showLogin(message=''){
  ${authMode==='newpass'?`<input id="lp" type="password" autocomplete="new-password" placeholder="رمز جدید (حداقل ۸ کاراکتر)"><input id="lp2" type="password" autocomplete="new-password" placeholder="تکرار رمز جدید" onkeydown="if(event.key==='Enter')setNewPassword()"><button class="btn" style="width:100%;margin-top:8px" onclick="setNewPassword()">ثبت رمز جدید</button>`:`<input id="le" type="email" autocomplete="email" placeholder="ایمیل" value="">${authMode==='reset'?'':`<input id="lp" type="password" autocomplete="${authMode==='login'?'current-password':'new-password'}" placeholder="رمز عبور" onkeydown="if(event.key==='Enter')doLogin()">`}${authMode==='signup'?`<button class="btn" style="width:100%;margin-top:8px" onclick="doLogin()">ثبت‌نام</button>`:authMode==='reset'?`<button class="btn" style="width:100%;margin-top:8px" onclick="sendReset()">ارسال لینک بازیابی</button>`:`<button class="btn" style="width:100%;margin-top:8px" onclick="doLogin()">ورود به برنامه</button>`}`}
  <div class="sub" id="authmsg" style="margin-top:10px;color:var(--ac)">${message}</div><div class="row" style="justify-content:center;margin-top:10px">${authMode==='login'?`<button class="x" onclick="authMode='signup';showLogin()">ساخت حساب جدید</button><button class="x" onclick="authMode='reset';showLogin()">فراموشی رمز عبور</button>`:`<button class="x" onclick="authMode='login';showLogin()">بازگشت به ورود</button>`}</div></div>`;
 }
+function adminEscape(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+function updateAdminButton(){const b=document.getElementById('adminBtn');if(b)b.style.display=currentUser?.app_metadata?.role==='admin'?'':'none'}
+async function openAdmin(){
+ if(currentUser?.app_metadata?.role!=='admin'){alert('دسترسی غیرمجاز');return}
+ const view=document.getElementById('admin-view'),app=document.getElementById('app');
+ app.style.display='none';view.style.display='block';view.innerHTML='<div class="card"><h2>پنل مدیریت اعضا</h2><div class="sub">در حال دریافت اطلاعات کاربران...</div></div>';
+ try{
+  const {data,error}=await supabase.functions.invoke('admin-list-users',{body:{page:1}});
+  if(error)throw error;
+  const users=data?.users||[];
+  const fmt=v=>v?new Date(v).toLocaleDateString('fa-IR'):'—';
+  view.innerHTML='<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><h2>پنل مدیریت اعضا</h2><button class="btn ghost" onclick="closeAdmin()">بازگشت</button></div><div class="row" style="gap:8px;flex-wrap:wrap"><div><b>'+users.length+'</b><div class="sub">کاربر در این صفحه</div></div><div><b>'+(data.total??'—')+'</b><div class="sub">مجموع اعضا</div></div></div><input id="adminSearch" type="search" placeholder="جست‌وجوی ایمیل..." oninput="filterAdminUsers()" style="margin:12px 0;width:100%"><div id="adminRows">'+users.map(u=>'<div class="card" style="margin:8px 0;padding:12px"><b>'+adminEscape(u.email||'بدون ایمیل')+'</b><div class="sub">عضویت: '+fmt(u.created_at)+' · آخرین ورود: '+fmt(u.last_sign_in_at)+' · '+(u.email_confirmed_at?'ایمیل تأیید شده':'ایمیل تأیید نشده')+'</div></div>').join('')+'</div></div>';
+  window.__plannerAdminUsers=users;
+ }catch(e){view.innerHTML='<div class="card"><h2>خطا در پنل مدیریت</h2><p class="sub">'+adminEscape(e.message||'دریافت اطلاعات ناموفق بود')+'</p><button class="btn ghost" onclick="closeAdmin()">بازگشت</button></div>'}
+}
+function filterAdminUsers(){
+ const q=(document.getElementById('adminSearch')?.value||'').trim().toLowerCase();
+ const users=window.__plannerAdminUsers||[];
+ const rows=document.getElementById('adminRows');if(!rows)return;
+ const fmt=v=>v?new Date(v).toLocaleDateString('fa-IR'):'—';
+ rows.innerHTML=users.filter(u=>(u.email||'').toLowerCase().includes(q)).map(u=>'<div class="card" style="margin:8px 0;padding:12px"><b>'+adminEscape(u.email||'بدون ایمیل')+'</b><div class="sub">عضویت: '+fmt(u.created_at)+' · آخرین ورود: '+fmt(u.last_sign_in_at)+' · '+(u.email_confirmed_at?'ایمیل تأیید شده':'ایمیل تأیید نشده')+'</div></div>').join('')||'<div class="sub">موردی پیدا نشد</div>';
+}
+function closeAdmin(){document.getElementById('admin-view').style.display='none';document.getElementById('app').style.display='';render()}
 async function doLogin(){
  if(authBusy)return;const email=document.getElementById('le')?.value.trim().toLowerCase(),password=document.getElementById('lp')?.value;
  if(!email||!password){alert('ایمیل و رمز عبور را کامل وارد کن');return}
@@ -156,7 +180,7 @@ async function setNewPassword(){const p1=document.getElementById('lp')?.value,p2
  const {data,error}=await supabase.auth.updateUser({password:p1});if(error){showLogin(error.message);return}authMode='login';if(data?.user){await startUser(data.user)}alert('رمز عبور با موفقیت تغییر کرد');
 }
 async function startUser(user){
- currentUser=user;SK=cacheKey(user.id);S=DEF();
+ currentUser=user;updateAdminButton();SK=cacheKey(user.id);S=DEF();
  const {data,error}=await supabase.from('planner_data').select('data').eq('user_id',user.id).maybeSingle();
  if(error)throw error;
  if(data?.data&&typeof data.data==='object')S=Object.assign(DEF(),data.data);
@@ -172,7 +196,7 @@ async function bootAuth(){
 }
 supabase.auth.onAuthStateChange((event,session)=>{
  if(event==='PASSWORD_RECOVERY'){authMode='newpass';showLogin();}
- else if(event==='SIGNED_OUT'){currentUser=null;S=DEF();authMode='login';showLogin();render();}
+ else if(event==='SIGNED_OUT'){currentUser=null;updateAdminButton();document.getElementById('admin-view').style.display='none';document.getElementById('app').style.display='';S=DEF();authMode='login';showLogin();render();}
 });
 function firstWd(y,m){let w=(((new Date().getDay()+1)%7-(T.d-1))%7+7)%7,yy=T.y,mm=T.m;
  while(yy*12+mm<y*12+m){w=(w+mLen(yy,mm))%7;if(++mm>12){mm=1;yy++}}
