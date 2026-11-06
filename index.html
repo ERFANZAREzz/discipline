@@ -91,8 +91,8 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:18px 12px;line-
 <nav>
 <button data-t="habit"><b class="em">🎯</b>هبیت ترکر</button><button data-t="week"><b class="em">📅</b>پلنر هفتگی</button><button data-t="budget"><b class="em">💰</b>ردیاب مالی</button><button data-t="study"><b class="em">🎓</b>پلنر تحصیلی</button>
 </nav>
-<script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
 window.addEventListener('error',function(e){
  const box=document.getElementById('runtime-diagnostic')||document.body.appendChild(document.createElement('div'));
  box.id='runtime-diagnostic';box.style.cssText='position:fixed;z-index:99999;top:10px;left:10px;right:10px;padding:14px;background:#7f1d1d;color:white;border-radius:12px;direction:rtl;font:14px/1.8 sans-serif;white-space:pre-wrap';
@@ -116,7 +116,7 @@ const mLen=(y,m)=>m<=6?31:m<=11?30:(LEAP.includes(y%33)?30:29);
 const ser=(y,m,d)=>{let s=0;for(let i=1400;i<y;i++)s+=LEAP.includes(i%33)?366:365;for(let i=1;i<m;i++)s+=mLen(y,i);return s+d};
 const SUPABASE_URL='https://jerrzygmjkoetlkibovy.supabase.co';
 const SUPABASE_KEY='sb_publishable_0xeo6GUflAO0FsiLFksagg_zeGuQ-YP';
-const sbClient=createClient(SUPABASE_URL,SUPABASE_KEY);
+const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const DEF=()=>({habits:[],ck:{},wt:{},notes:{},tasks:{},tx:[],bud:{},ev:{},subj:[]});
 let SK='guest',S=DEF(),currentUser=null,saveTimer=null,authBusy=false;
 const cacheKey=id=>'myplanner:'+id;
