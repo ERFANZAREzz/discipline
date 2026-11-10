@@ -105,8 +105,20 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:18px 12px;line-
 </nav>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const sb = window.supabase.createClient('https://jerrzygmjkoetlkibovy.supabase.co','sb_publishable_0xeo6GUflAO0FsiLFksagg_zeGuQ-YP');
+const sb=window.supabase.createClient('https://jerrzygmjkoetlkibovy.supabase.co','sb_publishable_0xeo6GUflAO0FsiLFksagg_zeGuQ-YP');
 let cloudUser=null,cloudReady=false,cloudBusy=false,cloudPending=false,cloudLoading=false,cloudTimer=null;
+async function cloudSaveNow(){
+ if(!cloudReady||!cloudUser)return;
+ if(cloudBusy){cloudPending=true;return}
+ cloudBusy=true;
+ const snapshot=JSON.parse(JSON.stringify(S));
+ try{
+  const {error}=await sb.from('planner_data').upsert({user_id:cloudUser.id,data:snapshot},{onConflict:'user_id'});
+  if(error)throw error;
+  document.title='پک کامل پلنر';
+ }catch(e){console.error('Cloud save failed:',e);document.title='خطا در ذخیره ابری · پک کامل پلنر'}
+ finally{cloudBusy=false;if(cloudPending){cloudPending=false;cloudSaveNow()}}
+}
 const fa=n=>Number(n).toLocaleString('fa-IR').replace(/٬/g,'');const fn=n=>Number(n).toLocaleString('fa-IR');
 const MN=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 const WD=['ش','ی','د','س','چ','پ','ج'],WF=['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
@@ -119,17 +131,6 @@ const ser=(y,m,d)=>{let s=0;for(let i=1400;i<y;i++)s+=LEAP.includes(i%33)?366:36
 const uk=(f,l)=>'pl:'+(f+' '+l).replace(/\s+/g,' ').trim().toLowerCase();
 let SK='planner2',S=null;
 const DEF=()=>({habits:[],ck:{},wt:{},notes:{},tasks:{},tx:[],bud:{},ev:{},subj:[]});
-async function cloudSaveNow(){
- if(!cloudReady||!cloudUser)return;
- if(cloudBusy){cloudPending=true;return}
- cloudBusy=true;
- const snapshot=JSON.parse(JSON.stringify(S));
- try{
-  const {error}=await sb.from('planner_data').upsert({user_id:cloudUser.id,data:snapshot,updated_at:new Date().toISOString()},{onConflict:'user_id'});
-  if(error)throw error;
- }catch(e){console.error('Cloud save failed:',e);document.title='خطا در ذخیره ابری · پک کامل پلنر'}
- finally{cloudBusy=false;if(cloudPending){cloudPending=false;cloudSaveNow()}}
-}
 const save=()=>{try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}if(cloudReady&&cloudUser){clearTimeout(cloudTimer);cloudTimer=setTimeout(cloudSaveNow,650)}};
 function load(k){let r=null;try{r=JSON.parse(localStorage.getItem(k))}catch(e){}SK=k;S=Object.assign(DEF(),r||{});migrate()}
 function migrate(){if(!S.seeded){if(!S.habits.length)S.habits=[{n:'بیدار شدن ۵ صبح',e:'⏰'},{n:'خوردن ۸ لیوان آب',e:'💧'},{n:'۳۰ دقیقه ورزش',e:'💪'},{n:'۸ ساعت خواب',e:'😴'},{n:'پیاده‌روی',e:'🚶'},{n:'۱۵ دقیقه مدیتیشن',e:'🧘'},{n:'مطالعه ۵ صفحه',e:'📖'}];S.seeded=1;save()}if(!S.noemoji){S.habits.forEach(h=>{h.n=h.n.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu,'').replace(/\s+/g,' ').trim()||h.n});S.noemoji=1;save()}
@@ -137,7 +138,7 @@ if(!S.emv){const M={'بیدار شدن ۵ صبح':'⏰','خوردن ۸ لیوا�
 try{if(localStorage.getItem('planner_reset')!=='r1'){Object.keys(localStorage).filter(k=>k==='planner1'||k==='planner2'||k==='planner_last'||k==='guest'||k.startsWith('pl:')).forEach(k=>localStorage.removeItem(k));localStorage.setItem('planner_reset','r1')}}catch(e){}
 let last=null;try{last=localStorage.getItem('planner_last')}catch(e){}
 load(last||'planner2');
-S.user=null;
+if(!last&&S.user){SK=uk(S.user.f,S.user.l);save();try{localStorage.setItem('planner_last',SK)}catch(e){}}
 const T=jNow();let tab='habit',cur={y:T.y,m:T.m},wkOff=0,sel=T.d,qo=0,fresh=true,pop='',qf=0;
 if(!S.start){S.start=ser(T.y,T.m,T.d);save()}
 const Q=[["سعی نکن موفق باشی؛ سعی کن ارزشمند باشی.","آلبرت اینشتین"],["یک امروز، ارزش دو فردا را دارد.","بنجامین فرانکلین"],["اگر چیزی را غیرممکن بدانی، برایت غیرممکن می‌شود.","بروس لی"],["غلبه بر ترس، آغاز خردمندی است.","برتراند راسل"],["هرگز سعی نکردم میل درونی‌ام به بهترین بودن را پنهان کنم.","کریستیانو رونالدو"],["نبوغ یک درصد الهام است و نود و نه درصد عرق ریختن.","توماس ادیسون"],["سفر هزار فرسنگی با یک قدم آغاز می‌شود.","لائوتزو"],["ما همان چیزی هستیم که مدام انجام می‌دهیم؛ پس برتری یک عادت است.","ویل دورانت"],["تنها چیزی که باید از آن بترسیم، خودِ ترس است.","فرانکلین روزولت"],["لازم نیست کل پلکان را ببینی؛ فقط قدم اول را بردار.","مارتین لوتر کینگ"],["تا وقتی انجام نشده، همه‌چیز غیرممکن به نظر می‌رسد.","نلسون ماندلا"],["آنچه می‌ماند، شهامتِ ادامه دادن است.","وینستون چرچیل"],["تنها راه انجام کار بزرگ، دوست داشتن کارتان است.","استیو جابز"],["چه فکر کنی می‌توانی، چه نه؛ حق با توست.","هنری فورد"],["آنچه می‌جویی، تو را می‌جوید.","مولانا"],["توانا بود هر که دانا بود.","فردوسی"],["هیچ راهی نیست کان را نیست پایان، غم مخور.","حافظ"],["موفقیت معلم بدی است؛ آدم‌های باهوش را مغرور می‌کند.","بیل گیتس"],["بارها شکست خوردم و برای همین موفق شدم.","مایکل جردن"],["راز پیشرفت کردن، شروع کردن است.","مارک تواین"],["راه شروع این است که حرف زدن را رها کنی و عمل کنی.","والت دیزنی"],["از تمرین بدم می‌آمد، اما تحمل کردم تا قهرمان شوم.","محمدعلی کلی"],["عمل، کلید اصلی هر موفقیتی است.","پابلو پیکاسو"],["شانس فقط به ذهن‌های آماده لبخند می‌زند.","لویی پاستور"],["آینده را شجاعان، فرصت می‌نامند.","ویکتور هوگو"],["موفقیت، مجموع تلاش‌های کوچکی است که هر روز تکرار می‌شوند.","رابرت کالیر"],["اگر دورتر را دیده‌ام، بر شانهٔ غول‌ها ایستاده‌ام.","آیزاک نیوتن"],["به ستاره‌ها نگاه کن، نه به پاهایت.","استیون هاوکینگ"],["هر چه را جشن بگیری، در زندگی‌ات بیشتر می‌شود.","اپرا وینفری"],["در زندگی چیزی برای ترسیدن نیست، فقط برای فهمیدن است.","ماری کوری"],["شک‌های ما خائنند و ما را از به‌دست‌آوردن بازمی‌دارند.","ویلیام شکسپیر"],["زندگیِ بررسی‌نشده ارزش زیستن ندارد.","سقراط"],["نخست به خودت بگو چه می‌خواهی باشی، سپس آنچه لازم است انجام بده.","اپیکتتوس"],["کارها دشوار نیستند؛ جرئت نکردن ما آن‌ها را دشوار می‌کند.","سنکا"],["آنچه سدِ راه است، خودش راه می‌شود.","مارکوس آورلیوس"],["آنچه مرا نکُشد، قوی‌ترم می‌کند.","فریدریش نیچه"],["هر آنچه ذهن بتواند تصور و باور کند، به دست می‌آورد.","ناپلئون هیل"],["لازم نیست عالی باشی تا شروع کنی، اما باید شروع کنی تا عالی شوی.","زیگ زیگلار"],["قدرت واقعی از اراده‌ی تسلیم‌ناپذیر می‌آید.","مهاتما گاندی"],["ارزش هر کس به اندازهٔ کاری است که خوب انجام می‌دهد.","امام علی (ع)"],["چو دخلت نیست، خرج آهسته‌تر کن.","سعدی"],["کار امروز را به فردا مینداز.","ضرب‌المثل"],["زخم، جایی‌ست که نور از آن به درون می‌تابد.","مولانا"],["کارهای کوچک را خوب انجام بده؛ کارهای بزرگ از آن‌ها ساخته می‌شود.","جان وودن"],["سخت‌ترین کار را اول انجام بده.","برایان تریسی"],["مهم نیست چقدر آهسته می‌روی، فقط نایست.","کنفوسیوس (منسوب)"],["به‌تنهایی کم می‌توانیم، با هم بسیار.","هلن کلر"],["آنچه ارزشش را دارد، هرگز آسان به دست نمی‌آید.","تئودور روزولت"],["برای رسیدن به رویا باید جنگید، فداکاری کرد و سخت کار کرد.","لیونل مسی"],["پشتکار بسیار مهم است؛ تا مجبور نشدی، تسلیم نشو.","ایلان ماسک"]];
@@ -175,14 +176,21 @@ async function startCloudSession(session,firstName='',lastName=''){
  if(cloudLoading)return;
  cloudLoading=true;cloudReady=false;cloudUser=session.user;
  try{
+  const meta=cloudUser.user_metadata||{};
+  const fnm=meta.first_name||firstName||'';
+  const lnm=meta.last_name||lastName||'';
+  let localCandidate=null;
+  if(fnm&&lnm){
+   try{localCandidate=JSON.parse(localStorage.getItem(uk(fnm,lnm))||'null')}catch(e){}
+  }
+  if(!localCandidate&&S.user&&fnm&&lnm&&uk(S.user.f,S.user.l)===uk(fnm,lnm))localCandidate=JSON.parse(JSON.stringify(S));
   const {data,error}=await sb.from('planner_data').select('data').eq('user_id',cloudUser.id).maybeSingle();
   if(error)throw error;
   if(data&&data.data&&typeof data.data==='object')S=Object.assign(DEF(),data.data);
-  else S=DEF();
-  const meta=cloudUser.user_metadata||{};
-  if(!S.user)S.user={f:meta.first_name||firstName||((cloudUser.email||'کاربر').split('@')[0]),l:meta.last_name||lastName||''};
-  if(!S.user.f)S.user.f=meta.first_name||firstName||((cloudUser.email||'کاربر').split('@')[0]);
-  if(!S.user.l)S.user.l=meta.last_name||lastName||'';
+  else S=Object.assign(DEF(),localCandidate||{});
+  if(!S.user)S.user={f:fnm||((cloudUser.email||'کاربر').split('@')[0]),l:lnm};
+  if(!S.user.f)S.user.f=fnm||((cloudUser.email||'کاربر').split('@')[0]);
+  if(!S.user.l)S.user.l=lnm;
   SK=uk(S.user.f,S.user.l);
   const now=jNow();
   if(!S.start)S.start=ser(now.y,now.m,now.d);
@@ -294,11 +302,11 @@ addEventListener('resize',navInd);addEventListener('load',navInd);
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;fresh=true;scrollTo(0,0);render()});
 const root=document.documentElement;try{const t=localStorage.getItem('pl_theme');if(t)root.dataset.theme=t}catch(e){}
 document.getElementById('theme').onclick=()=>{const dk=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;root.dataset.theme=dk?'light':'dark';try{localStorage.setItem('pl_theme',root.dataset.theme)}catch(e){}};
-document.getElementById('out').onclick=async()=>{if(confirm('از حساب خارج می‌شوی؟ اطلاعاتت در فضای ابری ذخیره می‌ماند.')){await sb.auth.signOut()}};
+document.getElementById('out').onclick=()=>{if(confirm('از حساب خارج می‌شوی؟ اطلاعاتت در فضای ابری ذخیره می‌ماند.'))sb.auth.signOut()};
 document.querySelectorAll('[data-i]').forEach(e=>e.innerHTML=ic(e.dataset.i,e.closest('nav')?22:18));
 showLogin();render();
 sb.auth.onAuthStateChange((event,session)=>{
- if(event==='SIGNED_OUT'){cloudReady=false;cloudUser=null;S=DEF();S.user=null;showLogin();render()}
+ if(event==='SIGNED_OUT'){cloudReady=false;cloudUser=null;S.user=null;showLogin();render()}
  else if(session)startCloudSession(session);
 });
 sb.auth.getSession().then(({data,error})=>{
